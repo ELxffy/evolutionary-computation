@@ -9,6 +9,7 @@ class Chromosome:
         self.Genes = genes
         self.Fitness = fitness
 
+
 class Benchmark:
 
     @staticmethod
@@ -34,33 +35,45 @@ def _generate_parent(length, geneSet, get_fitness):
     while len(genes) < length:
         sampleSize = min(length - len(genes), len(geneSet)) 
         genes.extend(random.sample(geneSet, sampleSize))
-    genes = ''.join(genes)
     fitness = get_fitness(genes)
     return Chromosome(genes, fitness)
+
 
 def _mutate(parent, geneSet, get_fitness):
     index = random.randrange(0, len(parent.Genes)) 
-    childGenes = list(parent.Genes)
+    childGenes = parent.Genes[:]
     newGene, alternate = random.sample(geneSet, 2) 
     childGenes[index] = alternate \
-    if newGene == childGenes[index] \
-    else newGene
-    genes = ''.join(childGenes)
-    fitness = get_fitness(genes)
-    return Chromosome(genes, fitness)
+                        if newGene == childGenes[index] \
+                        else newGene
+    fitness = get_fitness(childGenes)
+    return Chromosome(childGenes, fitness)
+
+
+def _get_improvement(new_child, generate_parent):
+    bestParent = generate_parent()
+    yield bestParent
+    while True:
+        child = new_child(bestParent)
+        if bestParent.Fitness > child.Fitness:
+            continue
+        if not child.Fitness > bestParent.Fitness:
+            bestParent = child
+            continue
+        yield child
+        bestParent = child
+
 
 def get_best(get_fitness, targetLen, optimalFitness, geneSet, display): 
     random.seed()
-    bestParent = _generate_parent(targetLen, geneSet, get_fitness)  
-    display(bestParent)
-    if bestParent.Fitness >= optimalFitness:
-        return bestParent
 
-    while True:
-        child = _mutate(bestParent, geneSet, get_fitness) 
-        if bestParent.Fitness >= child.Fitness: 
-            continue
-        display(child)
-        if child.Fitness >= optimalFitness:
-            return child 
-        bestParent = child
+    def fnMutate(parent):
+        return _mutate(parent, geneSet, get_fitness)
+    
+    def fnGeneratParent():
+        return _generate_parent(targetLen,geneSet,get_fitness)
+
+    for improvement in _get_improvement(fnMutate, fnGeneratParent):
+        display(improvement)
+        if not optimalFitness > improvement.Fitness:
+            return improvement
